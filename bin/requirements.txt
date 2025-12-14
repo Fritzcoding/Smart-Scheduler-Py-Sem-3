@@ -1,0 +1,7 @@
+pyqt5
+pyqt5-tools
+python-docx
+numpy
+matplotlib
+pillow
+opencv-python
