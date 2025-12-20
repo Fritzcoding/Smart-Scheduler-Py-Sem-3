@@ -19,6 +19,21 @@ import os
 
 GAMES = ["name games","softball", "basketball", "squash", "ultimate", "hockey", "lacrosse", "football", "tennis", "volleyball", "soccer"]
 
+# maximum number of periods per group
+MAX_PERIODS = 6
+
+
+def cap_periods(matrix, max_periods=MAX_PERIODS):
+	"""
+	Ensure no group has more than `max_periods` periods.
+	Trims extra periods while preserving original order.
+	"""
+	capped = []
+	for group in matrix:
+		# if group is shorter than max_periods, keep as-is
+		capped.append(group[:max_periods])
+	return capped
+
 def create_tables(n, doc):
 	"""
 	will create all of the neccessary tables/schdules for
@@ -78,6 +93,9 @@ def make_word_doc(matrix, file_name="Week 1"):
 	:param file_name: str
 	:return: None
 	"""
+	# enforce maximum periods per group
+	matrix = cap_periods(matrix)
+
 	doc = docx.Document("2019 Template Schedules.docx")
 	style = doc.styles['Normal']
 	font = style.font
@@ -110,6 +128,8 @@ def export_schedule_json(matrix, file_name):
 	:return: None
 	"""
 	try:
+		# cap periods to MAX_PERIODS before exporting
+		matrix = cap_periods(matrix)
 		schedule_dict = {}
 		for g, group in enumerate(matrix):
 			schedule_dict[f"Group {g+1}"] = group
@@ -131,6 +151,8 @@ def export_schedule_csv(matrix, file_name):
 	:return: None
 	"""
 	try:
+		# cap periods to MAX_PERIODS before exporting
+		matrix = cap_periods(matrix)
 		filepath = f"Generated Schedules/{file_name}_schedule.csv"
 		with open(filepath, 'w', newline='', encoding='utf-8') as f:
 			writer = csv.writer(f)
@@ -154,6 +176,8 @@ def create_schedule_visualization(matrix, file_name):
 	:return: None
 	"""
 	try:
+		# cap periods to MAX_PERIODS before visualizing
+		matrix = cap_periods(matrix)
 		# Count activities
 		activity_counts = {}
 		for group in matrix:
@@ -192,6 +216,8 @@ def generate_schedule_image_pillow(matrix, file_name):
 	:return: None
 	"""
 	try:
+		# cap periods to MAX_PERIODS before generating image
+		matrix = cap_periods(matrix)
 		# Create image
 		img_width = 1400
 		img_height = 200 + (len(matrix) * 180)
@@ -220,5 +246,33 @@ def generate_schedule_image_pillow(matrix, file_name):
 		print(f"✓ Pillow image generated: {filepath}")
 	except Exception as e:
 		print(f"✗ Error generating image: {e}")
+
+
+def make_word_doc_only(matrix, file_name="Week 1"):
+	"""
+	Create and save only the Word document for the schedule (no JSON/CSV/images).
+
+	:param matrix: 3d list
+	:param file_name: str
+	:return: None
+	"""
+	try:
+		matrix = cap_periods(matrix)
+		doc = docx.Document("2019 Template Schedules.docx")
+		style = doc.styles['Normal']
+		font = style.font
+		font.name = 'Arial'
+		font.size = Pt(12)
+		groups = len(matrix)
+
+		create_tables(groups-1, doc)
+		os.makedirs("Generated Schedules", exist_ok=True)
+		doc.save("Generated Schedules/" + file_name + " Schedules.docx")
+		doc = docx.Document("Generated Schedules/" + file_name + " Schedules.docx")
+		fill_tables(matrix, doc)
+		doc.save("Generated Schedules/" + file_name + " Schedules.docx")
+		print(f"✓ Word export successful: Generated Schedules/{file_name} Schedules.docx")
+	except Exception as e:
+		print(f"✗ Error exporting Word-only document: {e}")
 
 

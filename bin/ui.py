@@ -14,7 +14,7 @@ rename/move it to `ui.py` (you may need to remove or back up the existing `ui.py
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QSpinBox, QComboBox
 from PyQt5.QtCore import Qt
-from word import make_word_doc
+from word import make_word_doc, make_word_doc_only
 import traceback
 import time
 import random
@@ -243,8 +243,10 @@ class Ui_MainWindow(object):
         period_layout.addWidget(QLabel("Periods per Day:"))
         self.periods_spin = QSpinBox()
         self.periods_spin.setMinimum(2)
-        self.periods_spin.setMaximum(10)
+        # enforce maximum of 6 periods per day
+        self.periods_spin.setMaximum(6)
         self.periods_spin.setValue(6)
+        self.periods_spin.setToolTip("Maximum 6 periods per day")
         period_layout.addWidget(self.periods_spin)
         period_layout.addStretch()
         layout.addLayout(period_layout)
@@ -273,11 +275,21 @@ class Ui_MainWindow(object):
         csv_btn = QPushButton("CSV")
         csv_btn.clicked.connect(self.export_csv)
         export_layout.addWidget(csv_btn)
-        
+
         image_btn = QPushButton("Image")
         image_btn.clicked.connect(self.export_image)
         export_layout.addWidget(image_btn)
-        
+
+        # Word-only export button (creates only the .docx)
+        word_btn = QPushButton("Word")
+        word_btn.clicked.connect(self.export_word)
+        export_layout.addWidget(word_btn)
+
+        # Pie chart export button
+        pie_btn = QPushButton("Pie")
+        pie_btn.clicked.connect(self.export_pie)
+        export_layout.addWidget(pie_btn)
+
         analyze_btn = QPushButton("Analyze")
         analyze_btn.clicked.connect(self.analyze)
         export_layout.addWidget(analyze_btn)
@@ -347,11 +359,19 @@ class Ui_MainWindow(object):
             self.start_time = time.time()
             if self.solve():
                 make_word_doc(self.matrix, self.week_combo.currentText())
+                try:
+                    self.export_pie()
+                except Exception:
+                    pass
                 self.show_info("Schedule generated successfully!", "Success")
             else:
                 # attempt to auto-adjust max_activity_uses if capacity is the issue
                 if self.try_auto_adjust_and_solve(num_groups):
                     make_word_doc(self.matrix, self.week_combo.currentText())
+                    try:
+                        self.export_pie()
+                    except Exception:
+                        pass
                     self.show_info(f"Schedule generated successfully!\n(Adjusted activity limit to {self.max_activity_uses})", "Success")
                 else:
                     # provide more help when solver fails without obvious constraints
@@ -421,75 +441,140 @@ class Ui_MainWindow(object):
         return True
     
     def export_json(self):
-        if not self.matrix:
-            self.show_error("Generate a schedule first", "No Schedule")
+        matrix = self._matrix_or_template()
+        if matrix is None:
             return
-        
+
         try:
             schedule_dict = {}
-            for g, group in enumerate(self.matrix):
+            for g, group in enumerate(matrix):
                 schedule_dict[f"Group {g+1}"] = group
-            
+
             filepath = f"Generated Schedules/{self.week_combo.currentText()}_schedule.json"
             os.makedirs("Generated Schedules", exist_ok=True)
             with open(filepath, 'w') as f:
                 json.dump(schedule_dict, f, indent=2)
-            
+
             self.show_info(f"Exported to {filepath}", "Export Complete")
         except Exception as e:
             self.show_error(f"Error: {str(e)}", "Export Failed")
+
+    def export_word(self):
+        matrix = self._matrix_or_template()
+        if matrix is None:
+            return
+
+        try:
+            make_word_doc_only(matrix, self.week_combo.currentText())
+            filepath = f"Generated Schedules/{self.week_combo.currentText()} Schedules.docx"
+            self.show_info(f"Exported Word document to {filepath}", "Word Export Complete")
+        except Exception as e:
+            self.show_error(f"Error: {str(e)}", "Word Export Failed")
+
+    def export_pie(self):
+        matrix = self._matrix_or_template()
+        if matrix is None:
+            return
+
+        try:
+            activity_counts = {}
+            for group in matrix:
+                for period in group:
+                    for activity in period:
+                        if activity and activity != "":
+                            activity_counts[activity] = activity_counts.get(activity, 0) + 1
+
+            # If no activities are assigned in the matrix, fall back to the
+            # available `self.activities` so the user can export a pie chart
+            # showing available activities rather than requiring a generated schedule.
+            if not activity_counts:
+                if getattr(self, 'activities', None):
+                    activity_counts = {a: 1 for a in self.activities}
+                else:
+                    self.show_error("No activity data to plot", "Pie Export Failed")
+                    return
+
+            labels = list(activity_counts.keys())
+            sizes = list(activity_counts.values())
+            cmap = plt.get_cmap('tab20')
+            colors = [cmap(i % 20) for i in range(len(labels))]
+
+            fig, ax = plt.subplots(figsize=(8, 8))
+            explode = [0.04] * len(labels)
+            wedges, texts, autotexts = ax.pie(
+                sizes,
+                labels=labels,
+                autopct='%1.1f%%',
+                startangle=140,
+                colors=colors,
+                explode=explode,
+                pctdistance=0.77,
+                wedgeprops={'edgecolor': 'white', 'linewidth': 0.7}
+            )
+            ax.axis('equal')
+            plt.setp(autotexts, size=10, weight='bold', color='white')
+            plt.title(f'Activity Distribution - {self.week_combo.currentText()}')
+            filepath = f"Generated Schedules/{self.week_combo.currentText()}_pie.png"
+            os.makedirs("Generated Schedules", exist_ok=True)
+            plt.tight_layout()
+            plt.savefig(filepath, dpi=150)
+            plt.close()
+
+            self.show_info(f"Pie chart saved to {filepath}", "Pie Export Complete")
+        except Exception as e:
+            self.show_error(f"Error: {str(e)}", "Pie Export Failed")
     
     def export_csv(self):
-        if not self.matrix:
-            self.show_error("Generate a schedule first", "No Schedule")
+        matrix = self._matrix_or_template()
+        if matrix is None:
             return
-        
+
         try:
             filepath = f"Generated Schedules/{self.week_combo.currentText()}_schedule.csv"
             os.makedirs("Generated Schedules", exist_ok=True)
             with open(filepath, 'w', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(["Group", "Period", "Days"])
-                
-                for g, group in enumerate(self.matrix):
+
+                for g, group in enumerate(matrix):
                     for p, period in enumerate(group):
                         writer.writerow([f"Group {g+1}", f"Period {p+1}"] + period)
-            
+
             self.show_info(f"Exported to {filepath}", "CSV Export Complete")
         except Exception as e:
             self.show_error(f"Error: {str(e)}", "CSV Export Failed")
     
     def export_image(self):
-        if not self.matrix:
-            self.show_error("Generate a schedule first", "No Schedule")
+        matrix = self._matrix_or_template()
+        if matrix is None:
             return
-        
+
         try:
-            img = Image.new('RGB', (1000, 600 + len(self.matrix) * 100), color='white')
+            img = Image.new('RGB', (1000, 600 + len(matrix) * 100), color='white')
             draw = ImageDraw.Draw(img)
-            
+
             y_pos = 20
-            for g, group in enumerate(self.matrix):
+            for g, group in enumerate(matrix):
                 text = f"Group {g+1}: {' | '.join([str(period) for period in group])}"
                 draw.text((20, y_pos), text, fill='black')
                 y_pos += 100
-            
+
             filepath = f"Generated Schedules/{self.week_combo.currentText()}_schedule.png"
             os.makedirs("Generated Schedules", exist_ok=True)
             img.save(filepath)
-            
+
             self.show_info(f"Image saved to {filepath}", "Image Export Complete")
         except Exception as e:
             self.show_error(f"Error: {str(e)}", "Image Export Failed")
     
     def analyze(self):
-        if not self.matrix:
-            self.show_error("Generate a schedule first", "No Schedule")
+        matrix = self._matrix_or_template()
+        if matrix is None:
             return
-        
+
         try:
             activity_counts = {}
-            for group in self.matrix:
+            for group in matrix:
                 for period in group:
                     for activity in period:
                         if activity:
@@ -512,6 +597,22 @@ class Ui_MainWindow(object):
             self.show_info(msg, "Schedule Analysis")
         except Exception as e:
             self.show_error(f"Error: {str(e)}", "Analysis Failed")
+
+    def _matrix_or_template(self):
+        """Return the current matrix or build a blank template from current groups/periods.
+
+        Returns None and shows an error if no groups are defined.
+        """
+        if self.matrix:
+            return self.matrix
+
+        num_groups = len(self.groups)
+        if num_groups == 0:
+            self.show_error("No groups defined to create a schedule template.", "Export Failed")
+            return None
+
+        # build a blank weekly matrix using current periods setting
+        return self.generate_weekly_matrix(num_groups)
 
     # Daily mode removed: no get_time_label or update_time_selector
     
