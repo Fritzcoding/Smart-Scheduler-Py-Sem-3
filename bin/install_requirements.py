@@ -1,3 +1,11 @@
+
+# Helper script to install packages listed in `requirements.txt`.
+# Behavior: reads `requirements.txt`, checks if each package can be imported,
+# and if missing, attempts to install it via pip (using `get_pip` helper when needed).
+# Imports:
+# - subprocess/sys: run pip as a subprocess using the current Python executable
+# - get_pip: local vendored helper to bootstrap pip if it's missing
+# - importlib/contextlib: used to import/check packages quietly
 import subprocess
 import sys
 import get_pip

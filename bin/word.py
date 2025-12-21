@@ -1,10 +1,10 @@
-"""
-Date Modified: Jul 15, 2019
-Author: Tech With Tim
 
-This script is responsible for writing a generated schedule
-into a word document. 
-"""
+# Export and visualization helpers:
+# - `docx` + `docx.shared.Pt`: build .docx schedule documents from a template
+# - `deepcopy`: used to duplicate document table structures when creating group tables
+# - `numpy` and `matplotlib`: simple numeric aggregation and visualization (bar charts)
+# - `PIL.Image*` and `cv2`: create and manipulate schedule images (Pillow preferred for simple drawing)
+# - `json`/`csv`/`os`: write schedule exports and manage filesystem
 import docx
 from copy import deepcopy
 from docx.shared import Pt 

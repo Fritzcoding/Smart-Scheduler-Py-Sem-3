@@ -11,6 +11,14 @@ This file is the clean, replacement implementation. To deploy it as the active U
 rename/move it to `ui.py` (you may need to remove or back up the existing `ui.py`).
 """
 
+# Standard GUI and utility imports:
+# - PyQt5.*: main GUI toolkit (windows, dialogs, widgets, layouts)
+# - `word` module: local helper for exporting generated schedules to .docx
+# - traceback/time/random: debugging, timing and randomized behavior
+# - json/csv/os: export and filesystem utilities
+# - numpy/matplotlib: basic numeric analysis and plotting for charts
+# - PIL (Pillow): simple image export helper
+# - cv2: OpenCV, included for optional image processing (may be unused)
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QSpinBox, QComboBox
 from PyQt5.QtCore import Qt
@@ -193,6 +201,9 @@ class Ui_MainWindow(object):
     """Main UI class for Schedule Creator"""
     
     def setupUi(self, MainWindow):
+        # Build and arrange the main window widgets and connect signals.
+        # The UI is intentionally simple: central column with controls,
+        # dialogs launched for activity/group management, and export buttons.
         # keep a reference to the actual QMainWindow so dialogs can use it as parent
         self.main_window = MainWindow
         MainWindow.setObjectName("MainWindow")
