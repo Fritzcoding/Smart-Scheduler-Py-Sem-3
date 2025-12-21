@@ -52,6 +52,7 @@ Successfully integrated **6 Python modules** into Schedule Creator:
 ## 🎁 WHAT YOU GET
 
 ### Immediate Use
+```bash
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 
@@ -62,6 +63,7 @@ python -m pip install -r requirements.txt
 python -m pip install PyQt5-sip
 
 python ui.py
+```
 
 ### Generated Outputs (5 Types)
 1. **Word Document** - Professional schedule
@@ -272,13 +274,20 @@ All operations complete in acceptable timeframes:
 
 ### Step 1: Install
 ```bash
-cd Schedule-Creator-master/bin
-pip install -r requirements.txt
-```
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+cd bin
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
+
+python -m pip install PyQt5-sip
+
+python ui.py
 
 ### Step 2: Run
 ```bash
-python ui.py
+
 ```
 
 ### Step 3: Create Schedule
